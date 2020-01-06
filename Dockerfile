@@ -142,18 +142,18 @@ RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" 
 ### Kubernetes (k8s-build)
 FROM golang:1.13-stretch AS k8s-build
 RUN apt-get update && apt-get install -y -q patch rsync
-ARG BAZEL_RELEASE
-ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel
-RUN chmod +x /usr/local/bin/bazel
+#ARG BAZEL_RELEASE
+#ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel
+#RUN chmod +x /usr/local/bin/bazel
 RUN git clone https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
 ARG KUBERNETES_COMMIT
 RUN git pull && git checkout ${KUBERNETES_COMMIT}
 COPY ./src/patches/kubernetes /patches
 # `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
+#RUN git config user.email "julien.ancelin@inra.fr" && \
+#  git config user.name "Usernetes Build Script" && \
+#  git am /patches/* && git show --summary
 ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
@@ -173,23 +173,33 @@ RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
 #### flannel (flannel-build)
 FROM busybox AS flannel-build
 ARG FLANNEL_RELEASE
-RUN mkdir -p /out && \
-  wget -O /out/flanneld https://github.com/coreos/flannel/releases/download/${FLANNEL_RELEASE}/flanneld-amd64 && \
-  chmod +x /out/flanneld
+RUN mkdir -p /out ##&& \
+RUN  wget -O /out/flanneld https://github.com/coreos/flannel/releases/download/${FLANNEL_RELEASE}/flanneld-arm64 ##&& \
+RUN  chmod +x /out/flanneld
 
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
-RUN mkdir /tmp-etcd out && \
-  wget -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
-  cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
+RUN mkdir /tmp-etcd out ##&& \
+RUN  wget -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-arm64.tar.gz | tar xz -C /tmp-etcd ##&& \
+RUN  cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-arm64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-arm64/etcdctl /out
 
 #### go-task (gotask-build)
-FROM busybox AS gotask-build
-ARG GOTASK_RELEASE
-RUN mkdir /tmp-task /out && \
-  wget -O - https://github.com/go-task/task/releases/download/${GOTASK_RELEASE}/task_linux_amd64.tar.gz | tar xz  -C /tmp-task && \
-  cp /tmp-task/task /out
+##FROM busybox AS gotask-build
+##ARG GOTASK_RELEASE
+##RUN mkdir /tmp-task /out && \
+##  wget -O - https://github.com/go-task/task/releases/download/${GOTASK_RELEASE}/task_linux_arm64.tar.gz | tar xz  -C /tmp-task && \
+##  cp /tmp-task/task /out
+FROM golang:1.13-alpine AS gotask-build
+RUN mkdir /out && \
+    wget https://github.com/go-task/task/archive/master.zip && unzip master.zip && mv task-master task && rm master.zip && \
+    cd task && \
+# compiling binary to $GOPATH/bin
+    go install -v ./cmd/task && \
+# compiling it to another location
+# use -o ./task.exe on Windows
+    go build -v -o ./task ./cmd/task && \
+    cp ./task /out
 
 ### Binaries (bin-main)
 FROM scratch AS bin-main
