@@ -1,7 +1,7 @@
 # targets prefixed with underscore are not intended be invoked by human
 
 .DEFAULT_GOAL := binaries
-IMAGE=rootlesscontainers/usernetes
+IMAGE=jancelin/usernetes:0.1
 
 binaries: image _binaries
 
@@ -15,7 +15,7 @@ image:
 ifeq ($(DOCKER_BUILDKIT),1)
 	./hack/translate-dockerfile-runopt-directive.sh < Dockerfile | docker build -t $(IMAGE) -f - $(DOCKER_BUILD_FLAGS) .
 else
-	docker build -t $(IMAGE) $(DOCKER_BUILD_FLAGS) .
+	docker  buildx build --platform=linux/arm64 --push -t $(IMAGE) $(DOCKER_BUILD_FLAGS) .
 endif
 
 test: image _test
